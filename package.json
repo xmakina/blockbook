@@ -1,0 +1,28 @@
+{
+  "name": "blockbook",
+  "version": "0.1.0",
+  "description": "A Social Network powered by Blockstack",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha",
+    "test:watch": "mocha --watch ./test ./src"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xmakina/blockbook.git"
+  },
+  "author": "Alex Addams <github@xmakina.co.uk>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/xmakina/blockbook/issues"
+  },
+  "homepage": "https://github.com/xmakina/blockbook#readme",
+  "devDependencies": {
+    "chai": "^4.1.2",
+    "mocha": "^3.5.0",
+    "standard": "^10.0.2"
+  },
+  "dependencies": {
+    "openpgp": "^2.5.12"
+  }
+}
