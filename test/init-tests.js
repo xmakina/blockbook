@@ -77,7 +77,7 @@
     it('should have encrypted', () => {
       assert.equal(encrypted.length, 12)
     })
-    it('should have decrypted', () => {
+    it('can be decrypted', () => {
       assert.equal(decrypted, inputText)
     })
   })
@@ -97,17 +97,18 @@
     })
   })
 
-  // describe('when bob is added to pals', () => {
-  //   const state = states.withpals
+  describe('when bob is added to pals', () => {
+    const state = states.withpals
 
-  //   beforeEach(() => {
-  //     subject = new BlockBook(alice.userDetails, alice.publicKey, state)
-  //     subject.addToGroup('pals', 'bob.id', bob.publicKey)
-  //     result = subject.getState()
-  //   })
+    beforeEach(() => {
+      subject = new BlockBook(alice.userDetails, alice.publicKey, state)
+      return subject.addToGroup('pals', 'bob.id', bob.publicKey, alice.privateKey, alice.password).then(() => {
+        result = subject.getState()
+      })
+    })
 
-  //   it('should add bob', () => {
-  //     result.connections['bob.id'].groups = 'endcrypted text'
-  //   })
-  // })
+    it('should add bob', () => {
+      result.connections['bob.id'].groups = 'endcrypted text'
+    })
+  })
 })()

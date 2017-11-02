@@ -47,16 +47,24 @@
   }
 
   BlockBook.prototype.decrypt = function (ciphertext, privateKey, password) {
+    if (Array.isArray(ciphertext) === false) {
+      throw new Error('ciphertext is not an array')
+    }
+
+    if (Array.isArray(privateKey) === false) {
+      throw new Error('privateKey is not an array')
+    }
+
     var privKeyObj = openpgp.key.readArmored(privateKey.join('\n')).keys[0]
     privKeyObj.decrypt(password)
 
     let options = {
-      message: openpgp.message.readArmored(ciphertext.join('\n')),     // parse armored message
-      privateKey: privKeyObj // for decryption
+      message: openpgp.message.readArmored(ciphertext.join('\n')),
+      privateKey: privKeyObj
     }
 
     return openpgp.decrypt(options).then(function (plaintext) {
-      return plaintext.data // 'Hello, World!'
+      return plaintext.data
     })
   }
 
@@ -79,6 +87,30 @@
     })
   }
 
-  BlockBook.prototype.addToGroup = function (group, username, publicKey) {
+  BlockBook.prototype.addToGroup = function (groupName, targetName, targetPublicKey, privateKey, password) {
+    return this.decrypt(this.state.groups[groupName].privateKey, privateKey, password)
+      .then(groupPrivateKey => {
+        return this.addGroupToConnection(targetName, targetPublicKey, groupName, groupPrivateKey)
+      }).catch(err => {
+        console.error(err)
+      })
+  }
+
+  BlockBook.prototype.addGroupToConnection = function (targetName, targetPublicKey, groupName, groupPrivateKey) {
+    if (this.state.connections === undefined) {
+      this.state.connections = {}
+    }
+
+    if (this.state.connections[targetName] === undefined) {
+      this.state.connections[targetName] = {}
+    }
+
+    if (this.state.connections[targetName].groups === undefined) {
+      this.state.connections[targetName].groups = []
+    }
+
+    return this.encrypt(groupPrivateKey, targetPublicKey).then(encryptedGroupKey => {
+      this.state.connections[targetName].groups.push({name: groupName, key: groupPrivateKey})
+    })
   }
 })()
