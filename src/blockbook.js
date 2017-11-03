@@ -51,6 +51,10 @@
   }
 
   BlockBook.prototype.addToGroup = function (state, groupName, targetName, targetPublicKey, privateKey, password) {
+    if (state.publicKey === targetPublicKey) {
+      throw new Error("That's your public key, bucko!")
+    }
+
     return this.decrypt(state.groups[groupName].privateKey, privateKey, password)
       .then(groupPrivateKey => {
         return this.addGroupToConnection(state, targetName, targetPublicKey, groupName, groupPrivateKey)
@@ -73,7 +77,6 @@
     }
 
     return this.encrypt(groupPrivateKey, targetPublicKey).then(encryptedGroupKey => {
-      console.log(`encrypted ${groupName} key for ${targetName}`)
       state.connections[targetName].groups[groupName] = encryptedGroupKey
       return state
     })
@@ -105,7 +108,7 @@
   }
 
   BlockBook.prototype.readContent = function (userDetails, targetState, privateKey, password) {
-    if (targetState.connections[userDetails.name] === undefined) {
+    if (targetState.connections === undefined || targetState.connections[userDetails.name] === undefined) {
       throw new Error('You are not a connection')
     }
 
@@ -120,9 +123,6 @@
           let decryptPost = this.decrypt(post, groupPrivateKey.split(/\r?\n|\r/g), group).then(post => {
             posts.push(post)
           }).catch(err => {
-            console.log(post.join('\n'))
-            console.log(groupPrivateKey)
-            console.log(group)
             throw new Error(err)
           })
           postPromiseChain.push(decryptPost)
@@ -130,9 +130,6 @@
 
         return Promise.all(postPromiseChain)
       }).catch(err => {
-        console.log(targetState.connections[userDetails.name].groups[group].join('\n'))
-        console.log(privateKey.join('\n'))
-        console.log(password)
         throw new Error(err)
       })
 

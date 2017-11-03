@@ -172,7 +172,8 @@
     })
   })
 
-  describe('do the whole process', () => {
+  describe('do the whole process', function () {
+    this.timeout(20000)
     let charlieState = {userDetails: {name: 'charlie.id', email: 'charlie@example.com'}}
     const charliePassword = 'charlie-password'
     const charlieGroup = 'mymates'
@@ -222,7 +223,7 @@
         let dannyGroupSetup = subject.createGroup(dannyState, dannyGroup).then(() => {
           return subject.createGroup(dannyState, dannyPrivateGroup)
         }).then(() => {
-          return subject.addToGroup(dannyState, dannyGroup, charlieState.userDetails.name, dannyState.publicKey, dannyState.privateKey, dannyPassword)
+          return subject.addToGroup(dannyState, dannyGroup, charlieState.userDetails.name, charlieState.publicKey, dannyState.privateKey, dannyPassword)
         }).then(() => {
           return subject.post(dannyState, 'Foo Bar!', [dannyGroup], dannyState.privateKey, dannyPassword)
         }).then(() => {
@@ -239,18 +240,23 @@
         })
         readChain.push(charlieRead)
 
-        // let dannyRead = subject.readContent(dannyState.userDetails, charlieState, dannyState.privateKey, dannyPassword).then(content => {
-        //   dannyContent = content
-        // })
-        // readChain.push(dannyRead)
+        let dannyRead = subject.readContent(dannyState.userDetails, charlieState, dannyState.privateKey, dannyPassword).then(content => {
+          dannyContent = content
+        })
+        readChain.push(dannyRead)
 
         return Promise.all(readChain)
       })
     })
 
-    it('should be all set up', () => {
-      console.log({charlieContent, dannyContent})
-      assert.isFalse(true)
+    it('should have danny able to see charlies content', () => {
+      assert.equal(dannyContent[0], 'Hello world!')
+      assert.equal(dannyContent.length, 1)
+    })
+
+    it('should have charlie able to see dannys content', () => {
+      assert.equal(charlieContent[0], 'Foo Bar!')
+      assert.equal(charlieContent.length, 1)
     })
   })
 })()
