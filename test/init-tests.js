@@ -1,7 +1,7 @@
 /* eslint-env mocha */
 (function () {
-  var assert = require('chai').assert
-  var openpgp = require('openpgp')
+  let assert = require('chai').assert
+  let openpgp = require('openpgp')
   const BlockBook = require('../index.js')
 
   let subject = null
@@ -19,27 +19,25 @@
 
     before(() => {
       subject = new BlockBook(1024)
-      return subject.createGroup(state, 'pals', alice.password).then(newState => {
-        result = newState
-      })
+      return subject.createGroup(state, 'pals', alice.password)
     })
 
     it('should add a pals group', () => {
-      assert.isOk(result.groups['pals'])
+      assert.isOk(state.groups['pals'])
     })
 
     it('should add a private key', () => {
-      assert.isOk(result.groups['pals'].privateKey)
+      assert.isOk(state.groups['pals'].privateKey)
     })
 
     it('should add a public key', () => {
-      assert.isOk(result.groups['pals'].publicKey)
+      assert.isOk(state.groups['pals'].publicKey)
     })
 
     it('should be decryptable', () => {
-      return subject.decrypt(result.groups['pals'].privateKey, alice.privateKey, alice.password).then(decryptedButLockedKey => {
-        var privKeyObj = openpgp.key.readArmored(decryptedButLockedKey).keys[0]
-        var keyDecrypted = privKeyObj.decrypt('pals')
+      return subject.decrypt(state.groups['pals'].privateKey, alice.privateKey, alice.password).then(decryptedButLockedKey => {
+        let privKeyObj = openpgp.key.readArmored(decryptedButLockedKey).keys[0]
+        let keyDecrypted = privKeyObj.decrypt('pals')
         assert.isTrue(keyDecrypted)
       })
     })
@@ -99,15 +97,11 @@
   })
 
   describe('when a new user signs up', () => {
-    let state = {
-      userDetails: bob.userDetails
-    }
-
     let result
 
     beforeEach(() => {
       subject = new BlockBook()
-      return subject.generate(state, bob.password).then(keyPair => {
+      return subject.generate(bob.userDetails, bob.password).then(keyPair => {
         result = keyPair
       })
     })
@@ -142,21 +136,19 @@
 
     beforeEach(() => {
       subject = new BlockBook()
-      return subject.createGroup(state, 'family', alice.password).then(newState => {
-        return subject.post(newState, 'some content', ['pals', 'family'], alice.privateKey, alice.password).then(newState => {
-          result = newState
-        })
+      return subject.createGroup(state, 'family', alice.password).then(() => {
+        return subject.post(state, 'some content', ['pals', 'family'], alice.privateKey, alice.password)
       })
     })
 
     it('should add the post to pals', () => {
-      assert.isDefined(result.groups['pals'].posts[0])
-      assert.equal(result.groups['pals'].posts[0][0], '-----BEGIN PGP MESSAGE-----')
+      assert.isDefined(state.groups['pals'].posts[0])
+      assert.equal(state.groups['pals'].posts[0][0], '-----BEGIN PGP MESSAGE-----')
     })
 
     it('should add the post to family', () => {
-      assert.isDefined(result.groups['family'].posts[0])
-      assert.equal(result.groups['family'].posts[0][0], '-----BEGIN PGP MESSAGE-----')
+      assert.isDefined(state.groups['family'].posts[0])
+      assert.equal(state.groups['family'].posts[0][0], '-----BEGIN PGP MESSAGE-----')
     })
   })
 
@@ -170,13 +162,95 @@
 
     beforeEach(() => {
       subject = new BlockBook()
-      return subject.readContent(bobState, aliceState, bob.privateKey, bob.password).then(content => {
+      return subject.readContent(bobState.userDetails, aliceState, bob.privateKey, bob.password).then(content => {
         result = content
       })
     })
 
     it('should be able to read the post', () => {
       assert.equal(result[0], 'some content')
+    })
+  })
+
+  describe('do the whole process', () => {
+    let charlieState = {userDetails: {name: 'charlie.id', email: 'charlie@example.com'}}
+    const charliePassword = 'charlie-password'
+    const charlieGroup = 'mymates'
+    const charliePrivateGroup = 'closemates'
+
+    let dannyState = {userDetails: {name: 'danny.id', email: 'danny@example.com'}}
+    const dannyPassword = 'danny-password'
+    const dannyGroup = 'chums'
+    const dannyPrivateGroup = 'family'
+
+    let subject = new BlockBook(1024)
+
+    let charlieContent
+    let dannyContent
+
+    before(() => {
+      let setupChain = []
+
+      let charlieSetup = subject.generate(charlieState.userDetails, charliePassword)
+      .then(keyPair => {
+        charlieState.publicKey = keyPair.publicKey
+        charlieState.privateKey = keyPair.privateKey
+      })
+      setupChain.push(charlieSetup)
+
+      let dannySetup = subject.generate(dannyState.userDetails, dannyPassword).then(keyPair => {
+        dannyState.publicKey = keyPair.publicKey
+        dannyState.privateKey = keyPair.privateKey
+      })
+      setupChain.push(dannySetup)
+
+      return Promise.all(setupChain).then(() => {
+        let groupChain = []
+        // Post then add someone
+        let charlieGroupSetup = subject.createGroup(charlieState, charlieGroup).then(() => {
+          return subject.createGroup(charlieState, charliePrivateGroup)
+        }).then(() => {
+          return subject.post(charlieState, 'Hello world!', [charlieGroup], charlieState.privateKey, charliePassword)
+        }).then(() => {
+          return subject.post(charlieState, 'Secret Text', [charliePrivateGroup], charlieState.privateKey, charliePassword)
+        }).then(() => {
+          return subject.addToGroup(charlieState, charlieGroup, dannyState.userDetails.name, dannyState.publicKey, charlieState.privateKey, charliePassword)
+        })
+        groupChain.push(charlieGroupSetup)
+
+        // Add someone then post
+        let dannyGroupSetup = subject.createGroup(dannyState, dannyGroup).then(() => {
+          return subject.createGroup(dannyState, dannyPrivateGroup)
+        }).then(() => {
+          return subject.addToGroup(dannyState, dannyGroup, charlieState.userDetails.name, dannyState.publicKey, dannyState.privateKey, dannyPassword)
+        }).then(() => {
+          return subject.post(dannyState, 'Foo Bar!', [dannyGroup], dannyState.privateKey, dannyPassword)
+        }).then(() => {
+          return subject.post(dannyState, 'Fus Do Rar', [dannyPrivateGroup], dannyState.privateKey, dannyPassword)
+        })
+        groupChain.push(dannyGroupSetup)
+
+        return Promise.all(groupChain)
+      }).then(() => {
+        let readChain = []
+
+        let charlieRead = subject.readContent(charlieState.userDetails, dannyState, charlieState.privateKey, charliePassword).then(content => {
+          charlieContent = content
+        })
+        readChain.push(charlieRead)
+
+        // let dannyRead = subject.readContent(dannyState.userDetails, charlieState, dannyState.privateKey, dannyPassword).then(content => {
+        //   dannyContent = content
+        // })
+        // readChain.push(dannyRead)
+
+        return Promise.all(readChain)
+      })
+    })
+
+    it('should be all set up', () => {
+      console.log({charlieContent, dannyContent})
+      assert.isFalse(true)
     })
   })
 })()

@@ -23,8 +23,6 @@
 
     return openpgp.decrypt(options).then(function (plaintext) {
       return plaintext.data
-    }).catch(err => {
-      throw err
     })
   }
 })()
