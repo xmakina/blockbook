@@ -1,6 +1,7 @@
 /* eslint-env mocha */
 (function () {
   var assert = require('chai').assert
+  var openpgp = require('openpgp')
   const BlockBook = require('../index.js')
 
   let subject = null
@@ -33,6 +34,14 @@
 
     it('should add a public key', () => {
       assert.isOk(result.groups['pals'].publicKey)
+    })
+
+    it('should be decryptable', () => {
+      return subject.decrypt(result.groups['pals'].privateKey, alice.privateKey, alice.password).then(decryptedButLockedKey => {
+        var privKeyObj = openpgp.key.readArmored(decryptedButLockedKey).keys[0]
+        var keyDecrypted = privKeyObj.decrypt('pals')
+        assert.isTrue(keyDecrypted)
+      })
     })
   })
 
@@ -89,6 +98,29 @@
     })
   })
 
+  describe('when a new user signs up', () => {
+    let state = {
+      userDetails: bob.userDetails
+    }
+
+    let result
+
+    beforeEach(() => {
+      subject = new BlockBook()
+      return subject.generate(state, bob.password).then(keyPair => {
+        result = keyPair
+      })
+    })
+
+    it('should have a private key', () => {
+      assert.equal(result.privateKey[0], '-----BEGIN PGP PRIVATE KEY BLOCK-----')
+    })
+
+    it('should have a public key', () => {
+      assert.equal(result.publicKey[0], '-----BEGIN PGP PUBLIC KEY BLOCK-----')
+    })
+  })
+
   describe('when alice makes a post for pals', () => {
     let state = states.withBobInPals
 
@@ -138,13 +170,13 @@
 
     beforeEach(() => {
       subject = new BlockBook()
-      return subject.getContent(bobState, aliceState, bob.privateKey, bob.password).then(content => {
+      return subject.readContent(bobState, aliceState, bob.privateKey, bob.password).then(content => {
         result = content
       })
     })
 
-    it('should add the post', () => {
-      assert.equal(result.posts[0], 'some content')
+    it('should be able to read the post', () => {
+      assert.equal(result[0], 'some content')
     })
   })
 })()

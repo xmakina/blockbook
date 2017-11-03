@@ -11,7 +11,10 @@
     }
 
     var privKeyObj = openpgp.key.readArmored(privateKey.join('\n')).keys[0]
-    privKeyObj.decrypt(password)
+    var keyDecrypted = privKeyObj.decrypt(password)
+    if (!keyDecrypted) {
+      throw new Error('Password is wrong')
+    }
 
     let options = {
       message: openpgp.message.readArmored(ciphertext.join('\n')),
@@ -20,6 +23,8 @@
 
     return openpgp.decrypt(options).then(function (plaintext) {
       return plaintext.data
+    }).catch(err => {
+      throw err
     })
   }
 })()

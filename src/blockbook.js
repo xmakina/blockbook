@@ -10,11 +10,11 @@
 
   BlockBook.prototype.generate = function (state, password) {
     if (state.userDetails === undefined) {
-      throw new Error('Userdetails not in state')
+      throw new Error('userDetails not in state')
     }
 
-    var options = {
-      userIds: [state.userDetails],
+    let options = {
+      userIds: [{name: state.userDetails.name, email: state.userDetails.email}],
       numBits: this.numBits,
       passphrase: password
     }
@@ -31,7 +31,7 @@
 
   BlockBook.prototype.decrypt = require('./decrypt')
 
-  BlockBook.prototype.createGroup = function (state, groupName, password) {
+  BlockBook.prototype.createGroup = function (state, groupName) {
     if (state.groups === undefined) {
       state.groups = {}
     }
@@ -40,7 +40,7 @@
       throw new Error('Public Key is not set in state')
     }
 
-    return this.generate(state, password).then(keyPair => {
+    return this.generate(state, groupName).then(keyPair => {
       return this.encrypt(keyPair.privateKey.join('\n'), state.publicKey).then((encPrivateKey) => {
         state.groups[groupName] = {
           publicKey: keyPair.publicKey,
@@ -86,7 +86,7 @@
     }
 
     let promiseChain = []
-    for (var i = 0; i < groups.length; i++) {
+    for (let i = 0; i < groups.length; i++) {
       let group = groups[i]
 
       if (state.groups[group].posts === undefined) {
@@ -102,13 +102,32 @@
   }
 
   BlockBook.prototype.readContent = function (state, targetState, privateKey, password) {
-    var promiseChain = []
-    for (var group in targetState.connections[state.userDetails.name].groups) {
-      let decryptGroup = this.decrypt(targetState.groups[group].privateKey, privateKey, password).then(groupPrivateKey => {
+    let promiseChain = []
+    let posts = []
 
+    for (let group in targetState.connections[state.userDetails.name].groups) {
+      let decryptGroup = this.decrypt(targetState.connections[state.userDetails.name].groups[group], privateKey, password).then(groupPrivateKey => {
+        let postPromiseChain = []
+        for (let i = 0; i < targetState.groups[group].posts.length; i++) {
+          let post = targetState.groups[group].posts[i]
+          let decryptPost = this.decrypt(post, groupPrivateKey.split(/\r?\n|\r/g), group).then(post => {
+            posts.push(post)
+          }).catch(err => {
+            throw err
+          })
+          postPromiseChain.push(decryptPost)
+        }
+
+        return Promise.all(postPromiseChain)
+      }).catch(err => {
+        throw err
       })
 
       promiseChain.push(decryptGroup)
     }
+
+    return Promise.all(promiseChain).then(() => {
+      return posts
+    })
   }
 })()
