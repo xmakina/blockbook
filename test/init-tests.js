@@ -19,7 +19,9 @@
 
     before(() => {
       subject = new BlockBook(1024)
-      return subject.createGroup(state, 'pals', alice.password)
+      return subject.createGroup(state, 'pals', alice.password).then(newState => {
+        state = newState
+      })
     })
 
     it('should add a pals group', () => {
@@ -136,8 +138,12 @@
 
     beforeEach(() => {
       subject = new BlockBook()
-      return subject.createGroup(state, 'family', alice.password).then(() => {
-        return subject.post(state, 'some content', ['pals', 'family'], alice.privateKey, alice.password)
+      return subject.createGroup(state, 'family', alice.password)
+      .then((newState) => {
+        state = newState
+        return subject.post(state, 'some content', ['pals', 'family'], alice.privateKey, alice.password).then(newState => {
+          state = newState
+        })
       })
     })
 
@@ -208,27 +214,28 @@
       return Promise.all(setupChain).then(() => {
         let groupChain = []
         // Post then add someone
-        let charlieGroupSetup = subject.createGroup(charlieState, charlieGroup).then(() => {
+        let charlieGroupSetup = subject.createGroup(charlieState, charlieGroup).then((charlieState) => {
           return subject.createGroup(charlieState, charliePrivateGroup)
-        }).then(() => {
+        }).then((charlieState) => {
           return subject.post(charlieState, 'Hello world!', [charlieGroup], charlieState.privateKey, charliePassword)
-        }).then(() => {
+        }).then((charlieState) => {
           return subject.post(charlieState, 'Secret Text', [charliePrivateGroup], charlieState.privateKey, charliePassword)
-        }).then(() => {
+        }).then((charlieState) => {
           return subject.addToGroup(charlieState, charlieGroup, dannyState.userDetails.name, dannyState.publicKey, charlieState.privateKey, charliePassword)
-        })
+        }).then(finalState => { charlieState = finalState })
         groupChain.push(charlieGroupSetup)
 
         // Add someone then post
-        let dannyGroupSetup = subject.createGroup(dannyState, dannyGroup).then(() => {
+        let dannyGroupSetup = subject.createGroup(dannyState, dannyGroup)
+        .then((dannyState) => {
           return subject.createGroup(dannyState, dannyPrivateGroup)
-        }).then(() => {
+        }).then((dannyState) => {
           return subject.addToGroup(dannyState, dannyGroup, charlieState.userDetails.name, charlieState.publicKey, dannyState.privateKey, dannyPassword)
-        }).then(() => {
+        }).then((dannyState) => {
           return subject.post(dannyState, 'Foo Bar!', [dannyGroup], dannyState.privateKey, dannyPassword)
-        }).then(() => {
+        }).then((dannyState) => {
           return subject.post(dannyState, 'Fus Do Rar', [dannyPrivateGroup], dannyState.privateKey, dannyPassword)
-        })
+        }).then(finalState => { dannyState = finalState })
         groupChain.push(dannyGroupSetup)
 
         return Promise.all(groupChain)

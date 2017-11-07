@@ -8,7 +8,8 @@
 
   module.exports = BlockBook
 
-  BlockBook.prototype.generate = function (userDetails, password) {
+  BlockBook.prototype.generate = function (oldState, userDetails, password) {
+    let newState = JSON.parse(JSON.stringify(oldState))
     if (userDetails === undefined) {
       throw new Error('userDetails not in state')
     }
@@ -20,10 +21,12 @@
     }
 
     return openpgp.generateKey(options).then(key => {
-      return {
+      newState = {
         publicKey: key.publicKeyArmored.split(/\r?\n|\r/g),
         privateKey: key.privateKeyArmored.split(/\r?\n|\r/g)
       }
+
+      return newState
     })
   }
 
@@ -31,21 +34,24 @@
 
   BlockBook.prototype.decrypt = require('./decrypt')
 
-  BlockBook.prototype.createGroup = function (state, groupName) {
-    if (state.groups === undefined) {
-      state.groups = {}
-    }
-
-    if (state.publicKey === undefined) {
+  BlockBook.prototype.createGroup = function (oldState, groupName) {
+    let newState = JSON.parse(JSON.stringify(oldState))
+    if (oldState.publicKey === undefined) {
       throw new Error('Public Key is not set in state')
     }
 
-    return this.generate(state.userDetails, groupName).then(keyPair => {
-      return this.encrypt(keyPair.privateKey.join('\n'), state.publicKey).then((encPrivateKey) => {
-        state.groups[groupName] = {
+    if (oldState.groups === undefined) {
+      newState.groups = {}
+    }
+
+    return this.generate(oldState.userDetails, groupName).then(keyPair => {
+      return this.encrypt(keyPair.privateKey.join('\n'), oldState.publicKey).then((encPrivateKey) => {
+        newState.groups[groupName] = {
           publicKey: keyPair.publicKey,
           privateKey: encPrivateKey
         }
+
+        return newState
       })
     })
   }
@@ -57,54 +63,65 @@
 
     return this.decrypt(state.groups[groupName].privateKey, privateKey, password)
       .then(groupPrivateKey => {
-        return this.addGroupToConnection(state, targetName, targetPublicKey, groupName, groupPrivateKey)
+        return this.addGroupToConnection(state, targetName, targetPublicKey, groupName, groupPrivateKey).then(newState => {
+          return newState
+        })
       }).catch(err => {
         console.error(err)
       })
   }
 
-  BlockBook.prototype.addGroupToConnection = function (state, targetName, targetPublicKey, groupName, groupPrivateKey) {
-    if (state.connections === undefined) {
-      state.connections = {}
+  BlockBook.prototype.addGroupToConnection = function (oldState, targetName, targetPublicKey, groupName, groupPrivateKey) {
+    let newState = JSON.parse(JSON.stringify(oldState))
+    if (oldState.connections === undefined) {
+      newState.connections = {}
     }
 
-    if (state.connections[targetName] === undefined) {
-      state.connections[targetName] = {}
+    if (!oldState.connections || oldState.connections[targetName] === undefined) {
+      newState.connections[targetName] = {}
     }
 
-    if (state.connections[targetName].groups === undefined) {
-      state.connections[targetName].groups = {}
+    if (!oldState.connections || oldState.connections[targetName].groups === undefined) {
+      newState.connections[targetName].groups = {}
     }
 
     return this.encrypt(groupPrivateKey, targetPublicKey).then(encryptedGroupKey => {
-      state.connections[targetName].groups[groupName] = encryptedGroupKey
-      return state
+      newState.connections[targetName].groups[groupName] = encryptedGroupKey
+      return newState
     })
   }
 
-  BlockBook.prototype.post = function (state, content, groups, privateKey, password) {
-    if (state.groups === undefined) {
+  BlockBook.prototype.post = function (oldState, content, groups, privateKey, password) {
+    let newState = JSON.parse(JSON.stringify(oldState))
+    if (oldState.groups === undefined) {
       throw new Error('Groups not in state')
     }
 
     let promiseChain = []
     for (let i = 0; i < groups.length; i++) {
       let group = groups[i]
-      if (state.groups[group] === undefined) {
+      if (oldState.groups[group] === undefined) {
         throw new Error(`Group ${group} not defined`)
       }
-      if (state.groups[group].posts === undefined) {
-        state.groups[group].posts = []
+      if (oldState.groups[group].posts === undefined) {
+        newState.groups[group].posts = []
       }
 
-      promiseChain.push(this.encrypt(content, state.groups[group].publicKey).then(encryptedForGroup => {
-        state.groups[group].posts.push(encryptedForGroup)
+      promiseChain.push(this.encrypt(content, oldState.groups[group].publicKey).then(encryptedForGroup => {
+        return {encryptedForGroup, group}
       }).catch(err => {
         throw err
       }))
     }
 
-    return Promise.all(promiseChain).then(() => { return state })
+    return Promise.all(promiseChain).then((encryptedPosts) => {
+      for (var i = 0; i < encryptedPosts.length; i++) {
+        let encryptedPost = encryptedPosts[i]
+        newState.groups[encryptedPost.group].posts.push(encryptedPost.encryptedForGroup)
+      }
+
+      return newState
+    })
   }
 
   BlockBook.prototype.readContent = function (userDetails, targetState, privateKey, password) {
