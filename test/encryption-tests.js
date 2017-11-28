@@ -83,6 +83,35 @@
     })
   })
 
+  describe('re-encrypt a keypair', () => {
+    let password = 'group-name'
+    let originalKeyPair
+    let ownerKeyPair = new KeyPair(alice.publicKey, alice.privateKey, alice.password)
+    let targetKeyPair = new KeyPair(bob.publicKey)
+    let newKeyPair
+
+    before(() => {
+      let userDetails = alice.userDetails
+      return Encryption.generateEncryptedKeyPair({keyPair: ownerKeyPair, userDetails, password, numBits: 1024}).then(generatedEncryptedKeyPair => {
+        originalKeyPair = generatedEncryptedKeyPair
+      }).then(() => {
+        return Encryption.reencryptKeyPair({originalKeyPair, ownerKeyPair, targetKeyPair}).then(result => {
+          newKeyPair = result
+        })
+      })
+    })
+
+    it('should encrypt the private key', () => {
+      assert.equal(newKeyPair.privateKey[0], '-----BEGIN PGP MESSAGE-----')
+    })
+
+    it('should be possible for the target key to decrypt', () => {
+      return Encryption.decryptEncryptedKeyPair({encryptedKeyPair: newKeyPair, keyPair: new KeyPair(bob.publicKey, bob.privateKey, bob.password), password: 'group-name'}).then(result => {
+        assert.equal(result.privateKey[0], '-----BEGIN PGP PRIVATE KEY BLOCK-----')
+      })
+    })
+  })
+
   describe('encrypt a message for multiple keypairs', function () {
     this.timeout(15000)
     let groupOne = 'group-one'

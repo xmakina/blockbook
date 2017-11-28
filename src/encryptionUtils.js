@@ -7,7 +7,8 @@
     generateKeyPair: generateKeyPair,
     generateEncryptedKeyPair: generateEncryptedKeyPair,
     decryptEncryptedKeyPair: decryptEncryptedKeyPair,
-    encryptForKeyPairs: encryptForKeyPairs
+    encryptForKeyPairs: encryptForKeyPairs,
+    reencryptKeyPair: reencryptKeyPair
   }
 
   function generateKeyPair (name, email, password, numBits = 4096) {
@@ -48,6 +49,27 @@
       return keyPair.encrypt(newPair.privateKey.join('\n')).then((encPrivateKey) => {
         return new KeyPair(newPair.publicKey, encPrivateKey, password)
       })
+    })
+  }
+
+  function reencryptKeyPair (options) {
+    if (options.originalKeyPair === undefined) {
+      throw new Error('originalKey not defined')
+    }
+    let originalKeyPair = options.originalKeyPair
+
+    if (options.ownerKeyPair === undefined) {
+      throw new Error('ownerkeyPair not defined')
+    }
+
+    if (options.targetKeyPair === undefined) {
+      throw new Error('targetKey not defined')
+    }
+
+    return decryptEncryptedKeyPair({encryptedKeyPair: originalKeyPair, keyPair: options.ownerKeyPair}).then(decryptedKey => {
+      return options.targetKeyPair.encrypt(decryptedKey.privateKey.join('\n'))
+    }).then(encryptedPrivateKey => {
+      return new KeyPair(originalKeyPair.publicKey, encryptedPrivateKey, originalKeyPair.password)
     })
   }
 

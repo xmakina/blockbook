@@ -8,14 +8,6 @@
         throw new Error('publicKey must be an array')
       }
 
-      if (Array.isArray(privateKey) === false) {
-        throw new Error('privateKey must be an array')
-      }
-
-      if (password === undefined) {
-        throw new Error('password is required')
-      }
-
       this.publicKey = publicKey
       this.privateKey = privateKey
       this.password = password
@@ -27,6 +19,14 @@
   }
 
   KeyPair.prototype.decrypt = function (cipherText) {
+    if (Array.isArray(this.privateKey) === false) {
+      throw new Error('privateKey must be an array')
+    }
+
+    if (this.password === undefined) {
+      throw new Error('password is required')
+    }
+
     return Decrypt(cipherText, this.privateKey, this.password)
   }
 

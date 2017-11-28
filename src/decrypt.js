@@ -3,11 +3,11 @@
 
   module.exports = function (ciphertext, privateKey, password) {
     if (Array.isArray(ciphertext) === false) {
-      throw new Error('ciphertext is not an array')
+      throw new Error('ciphertext must be an array')
     }
 
     if (Array.isArray(privateKey) === false) {
-      throw new Error('privateKey is not an array')
+      throw new Error('privateKey must be an array')
     }
 
     var privKeyObj = openpgp.key.readArmored(privateKey.join('\n')).keys[0]
