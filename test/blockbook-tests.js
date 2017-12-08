@@ -78,26 +78,26 @@
         })
 
         describe('adds bob to the group', () => {
-          let groupMember
+          let groupMembership
           before(() => {
             return blockBook.addToGroup({group, newMemberPublicKey: bob.publicKey}).then(result => {
-              groupMember = result
+              groupMembership = result
             })
           })
 
           it('should add bob', () => {
-            assert.equal(groupMember.publicKey, bob.publicKey)
+            assert.equal(groupMembership.publicKey, bob.publicKey)
           })
 
           it('should add an encrypted key', () => {
-            assert.equal(groupMember.privateKey[0], '-----BEGIN PGP MESSAGE-----')
+            assert.equal(groupMembership.privateKey[0], '-----BEGIN PGP MESSAGE-----')
           })
 
           it('should be possible for bob to read the posts', () => {
             let bobBlockBook = new BlockBook()
             let bobKeyPair = new KeyPair(bob.publicKey, bob.privateKey, bob.password)
             return bobBlockBook.login({name: bob.userDetails.name, email: bob.userDetails.email, keyPair: bobKeyPair, numBits: 1024}).then(() => {
-              return bobBlockBook.readPostFromGroup({group, groupMember, groupPost})
+              return bobBlockBook.readPostFromGroup({group, groupMembership, groupPost})
             }).then(clearPost => {
               assert.equal(clearPost, 'Hello World!')
             })

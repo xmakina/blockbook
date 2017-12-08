@@ -23,6 +23,10 @@
       throw new Error('keyPair must be specified')
     }
 
+    if (!options.keyPair.encrypt) {
+      options.keyPair = new KeyPair(options.keyPair.publicKey, options.keyPair.privateKey, options.password)
+    }
+
     if (options.numBits !== undefined) {
       this.numBits = options.numBits
     }
